@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -6,11 +7,15 @@ using UnityEngine.Tilemaps;
 public class PlayerMovement : MonoBehaviour
 {
     private Rigidbody2D rb;
+
     private BoxCollider2D boxCollider;
-    //private TilemapCollider2D tilemapCollider;
+    
     private CompositeCollider2D compositeCollider;
+
     private Animator playerAnimator;
+    
     private GameObject camera;
+    
     private GameObject terrain;
 
     [SerializeField]
@@ -26,20 +31,29 @@ public class PlayerMovement : MonoBehaviour
         //tilemapCollider = GetComponent<TilemapCollider2D>();
         terrain = GameObject.Find("Terrain");
         camera = GameObject.Find("Main Camera");
-        initCompositeCollider();
-        lockOnPlayer();
+        InitCompositeCollider();
+        LockOnPlayer();
     }
 
     // Update is called once per frame
     private void Update()
     {
-        lockOnPlayer();
         float dirX = Input.GetAxisRaw("Horizontal");
 
-        if(dirX != 0)
+        UpdatePlayerMovement(dirX);
+        Debug.Log("rb.velocity: " + rb.velocity.y);
+    }
+
+    private void FixedUpdate()
+    {
+        LockOnPlayer();
+    }
+
+    private void UpdatePlayerMovement(float dirX)
+    {
+
+        if (dirX != 0)
         {
-            //bool isRunning = playerAnimator.GetBool("isRunning");
-            //isRunning = true;
             playerAnimator.SetBool("isRunning", true);
         }
         else
@@ -52,15 +66,27 @@ public class PlayerMovement : MonoBehaviour
 
         rb.velocity = new Vector2(dirX * 7f, posY);
 
-        // Debug.Log("box collider isTouching: " + boxCollider.IsTouching(compositeCollider));
-
         if (Input.GetButtonDown("Jump") && boxCollider.IsTouching(compositeCollider))
         {
             rb.velocity = new Vector2(posX, 16f);
         }
+        
+        if(rb.velocity.y > 1)
+        {
+            playerAnimator.SetBool("isJumping", true);
+        }
+        else if(rb.velocity.y < -1)
+        {
+            playerAnimator.SetBool("isJumping", false);
+            playerAnimator.SetBool("isFalling", true);
+        }
+        else if(rb.velocity.y > -1 && rb.velocity.y < 1)
+        {
+            playerAnimator.SetBool("isFalling", false);
+        }
     }
 
-    private void initCompositeCollider()
+    private void InitCompositeCollider()
     {
         if (terrain != null)
         {
@@ -68,7 +94,7 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    private void lockOnPlayer()
+    private void LockOnPlayer()
     {
         // TODO: Smooth the camera movement using Vector.Lerp
         if (camera == null)
@@ -92,5 +118,4 @@ public class PlayerMovement : MonoBehaviour
         camTransform.position = newPos;
 
     }
-
 }
