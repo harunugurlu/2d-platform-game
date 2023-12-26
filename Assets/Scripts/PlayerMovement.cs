@@ -11,15 +11,15 @@ public class PlayerMovement : MonoBehaviour
     private Rigidbody2D rb;
 
     private BoxCollider2D boxCollider;
-    
+
     private CompositeCollider2D compositeCollider;
 
     private SpriteRenderer spriteRenderer;
 
     private Animator playerAnimator;
-    
+
     private GameObject camera;
-    
+
     private GameObject terrain;
 
     private int isRunningHash;
@@ -33,7 +33,7 @@ public class PlayerMovement : MonoBehaviour
     private float smoothingFactor;
 
     [SerializeField]
-    private LayerMask groundLayer;
+    private LayerMask jumpableSurface;
 
     [SerializeField]
     private LayerMask wallLayer;
@@ -49,6 +49,7 @@ public class PlayerMovement : MonoBehaviour
         //tilemapCollider = GetComponent<TilemapCollider2D>();
         terrain = GameObject.Find("Terrain");
         camera = GameObject.Find("Main Camera");
+        //jumpableSurface = LayerMask.NameToLayer(LayerMask.LayerToName(terrain.layer));
 
         int isRunningHash = Animator.StringToHash("isRunning");
         int isJumpingHash = Animator.StringToHash("isJumping");
@@ -64,7 +65,6 @@ public class PlayerMovement : MonoBehaviour
         dirX = Input.GetAxisRaw("Horizontal");
 
         UpdatePlayerMovement();
-        Debug.Log("rb.velocity: " + rb.velocity.y);
     }
 
     private void FixedUpdate()
@@ -86,13 +86,13 @@ public class PlayerMovement : MonoBehaviour
 
         if (dirX != 0)
         {
-            if(dirX < 0)
+            if (dirX < 0)
             {
-                SpritRendererFlipX(true);
+                SpriteRendererFlipX(true);
             }
             else
             {
-                SpritRendererFlipX(false);
+                SpriteRendererFlipX(false);
             }
             playerAnimator.SetBool("isRunning", true);
         }
@@ -103,22 +103,22 @@ public class PlayerMovement : MonoBehaviour
 
         rb.velocity = new Vector2(dirX * 7f, posY);
 
-        if (Input.GetButtonDown("Jump") && (boxCollider.IsTouching(compositeCollider) || playerAnimator.GetBool("isFalling")) && numJumps > 0)
+        if (Input.GetButtonDown("Jump") && CanJump())
         {
             rb.velocity = new Vector2(posX, 16f);
             numJumps--;
         }
-        
-        if(rb.velocity.y > 1)
+
+        if (rb.velocity.y > 1)
         {
             playerAnimator.SetBool("isJumping", true);
         }
-        else if(rb.velocity.y < -1)
+        else if (rb.velocity.y < -1)
         {
             playerAnimator.SetBool("isJumping", false);
             playerAnimator.SetBool("isFalling", true);
         }
-        else if(rb.velocity.y > -1 && rb.velocity.y < 1)
+        else if (rb.velocity.y > -1 && rb.velocity.y < 1)
         {
             playerAnimator.SetBool("isFalling", false);
         }
@@ -132,12 +132,39 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    private bool CanJump()
+    private void Jump()
     {
-        return boxCollider.IsTouching(compositeCollider) || playerAnimator.GetBool(isFallingHash);
+
     }
 
-    private void SpritRendererFlipX(bool flipX)
+    private bool CanJump()
+    {
+        return (IsPlayerOnJumpableSurface() || playerAnimator.GetBool("isFalling")) && (numJumps > 0);
+    }
+
+    private bool IsPlayerOnJumpableSurface()
+    {
+        //RaycastHit2D has an implicit bool operator implemented. That's why we can directly use it as a boolean.
+        bool isPlayerOnGround = Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Vector2.down, .1f, jumpableSurface);
+        bool isPlayerOnLeftWall = Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, new Vector2(-1, 0), .1f, jumpableSurface);
+        bool isPlayerOnRightWall = Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, new Vector2(1, 0), .1f, jumpableSurface);
+
+        bool isPlayerOnJumpableSurface = isPlayerOnGround || isPlayerOnLeftWall || isPlayerOnRightWall;
+
+        Debug.Log("isPlayerOnJumpableSurface" + isPlayerOnJumpableSurface);
+        Debug.Log("isPlayerOnGround: " + isPlayerOnGround);
+        Debug.Log("isPlayerOnLeftWall: " + isPlayerOnLeftWall);
+        Debug.Log("isPlayerOnRightWall: " + isPlayerOnRightWall);
+
+        if(isPlayerOnJumpableSurface)
+        {
+            numJumps = 2;
+        }
+
+        return isPlayerOnJumpableSurface;
+    }
+
+    private void SpriteRendererFlipX(bool flipX)
     {
         spriteRenderer.flipX = flipX;
     }
