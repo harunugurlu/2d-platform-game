@@ -6,8 +6,7 @@ using UnityEngine.Tilemaps;
 
 public class PlayerMovement : MonoBehaviour
 {
-    //TODO: Add Layers to ground and walls, use LayerMasks to detect collision and add double jump. numJumps will be resetted to 2, when the player is on ground
-
+    //TODO: Fix Wall detection in IsPlayerOnJumpableSurface. It might make more sense to check it not after player pressed "W", but when player pressed "A" or "D".
     private Rigidbody2D rb;
 
     private BoxCollider2D boxCollider;
@@ -28,6 +27,7 @@ public class PlayerMovement : MonoBehaviour
 
     private int numJumps = 2;
     private float dirX = 0f;
+    private float dirY = 0f;
 
     [SerializeField]
     private float smoothingFactor;
@@ -35,8 +35,18 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField]
     private LayerMask jumpableSurface;
 
+
     [SerializeField]
     private LayerMask wallLayer;
+
+    [SerializeField]
+    private float jumpForce = 16f;
+
+    [SerializeField]
+    private float movementSpeed = 7f;
+
+    private enum MovementState { Idle, Running, Jumping, DoubleJumping, Falling }
+    private MovementState movementState = MovementState.Idle;
 
     // Start is called before the first frame update
     private void Start()
@@ -63,8 +73,10 @@ public class PlayerMovement : MonoBehaviour
     private void Update()
     {
         dirX = Input.GetAxisRaw("Horizontal");
+        dirY = Input.GetAxisRaw("Vertical");
 
         UpdatePlayerMovement();
+        UpdateAnimationState();
     }
 
     private void FixedUpdate()
@@ -81,47 +93,28 @@ public class PlayerMovement : MonoBehaviour
     {
         // Cache the parameter IDs using Animator.StringToHash
 
-        float posX = rb.velocity.x;
-        float posY = rb.velocity.y;
+        float velY = rb.velocity.y;
 
-        if (dirX != 0)
+        rb.velocity = new Vector2(dirX * movementSpeed, velY);
+
+        float velX = rb.velocity.x;
+
+        if (velX < -.1f)
         {
-            if (dirX < 0)
-            {
-                SpriteRendererFlipX(true);
-            }
-            else
-            {
-                SpriteRendererFlipX(false);
-            }
-            playerAnimator.SetBool("isRunning", true);
+            SpriteRendererFlipX(true);
         }
         else
         {
-            playerAnimator.SetBool("isRunning", false);
+            SpriteRendererFlipX(false);
         }
 
-        rb.velocity = new Vector2(dirX * 7f, posY);
 
         if (Input.GetButtonDown("Jump") && CanJump())
         {
-            rb.velocity = new Vector2(posX, 16f);
+            rb.velocity = new Vector2(velX, dirY * jumpForce);
             numJumps--;
         }
 
-        if (rb.velocity.y > 1)
-        {
-            playerAnimator.SetBool("isJumping", true);
-        }
-        else if (rb.velocity.y < -1)
-        {
-            playerAnimator.SetBool("isJumping", false);
-            playerAnimator.SetBool("isFalling", true);
-        }
-        else if (rb.velocity.y > -1 && rb.velocity.y < 1)
-        {
-            playerAnimator.SetBool("isFalling", false);
-        }
     }
 
     private void InitCompositeCollider()
@@ -139,15 +132,15 @@ public class PlayerMovement : MonoBehaviour
 
     private bool CanJump()
     {
-        return (IsPlayerOnJumpableSurface() || playerAnimator.GetBool("isFalling")) && (numJumps > 0);
+        return IsPlayerOnJumpableSurface() || (numJumps > 0) || (playerAnimator.GetInteger("movementState") == 4);
     }
 
     private bool IsPlayerOnJumpableSurface()
     {
         //RaycastHit2D has an implicit bool operator implemented. That's why we can directly use it as a boolean.
         bool isPlayerOnGround = Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Vector2.down, .1f, jumpableSurface);
-        bool isPlayerOnLeftWall = Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, new Vector2(-1, 0), .1f, jumpableSurface);
-        bool isPlayerOnRightWall = Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, new Vector2(1, 0), .1f, jumpableSurface);
+        bool isPlayerOnLeftWall = Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Vector2.left, 1f, jumpableSurface);
+        bool isPlayerOnRightWall = Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Vector2.right, 1f, jumpableSurface);
 
         bool isPlayerOnJumpableSurface = isPlayerOnGround || isPlayerOnLeftWall || isPlayerOnRightWall;
 
@@ -156,7 +149,7 @@ public class PlayerMovement : MonoBehaviour
         Debug.Log("isPlayerOnLeftWall: " + isPlayerOnLeftWall);
         Debug.Log("isPlayerOnRightWall: " + isPlayerOnRightWall);
 
-        if(isPlayerOnJumpableSurface)
+        if (isPlayerOnJumpableSurface)
         {
             numJumps = 2;
         }
@@ -171,7 +164,6 @@ public class PlayerMovement : MonoBehaviour
 
     private void LockOnPlayer()
     {
-        // TODO: Smooth the camera movement using Vector.Lerp
         if (camera == null)
         {
             return;
@@ -192,5 +184,34 @@ public class PlayerMovement : MonoBehaviour
         // Setting the position of the camera to the new position
         camTransform.position = newPos;
 
+    }
+
+    private void UpdateAnimationState()
+    {
+        MovementState state = MovementState.Idle;
+
+        if (dirX > 0f)
+        {
+            state = MovementState.Running;
+        }
+        else if (dirX < 0f)
+        {
+            state = MovementState.Running;
+        }
+        else
+        {
+            state = MovementState.Idle;
+        }
+
+        if (rb.velocity.y > .1f)
+        {
+            state = numJumps == 0 ? MovementState.DoubleJumping : MovementState.Jumping;
+        }
+        else if (rb.velocity.y < -.1f)
+        {
+            state = MovementState.Falling;
+        }
+
+        playerAnimator.SetInteger("movementState", (int)state);
     }
 }
