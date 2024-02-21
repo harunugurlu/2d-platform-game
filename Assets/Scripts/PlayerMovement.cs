@@ -6,7 +6,6 @@ using UnityEngine.Tilemaps;
 
 public class PlayerMovement : MonoBehaviour
 {
-    //TODO: Fix Wall detection in IsPlayerOnJumpableSurface. It might make more sense to check it not after player pressed "W", but when player pressed "A" or "D".
     private Rigidbody2D rb;
 
     private BoxCollider2D boxCollider;
@@ -21,13 +20,8 @@ public class PlayerMovement : MonoBehaviour
 
     private GameObject terrain;
 
-    private int isRunningHash;
-    private int isJumpingHash;
-    private int isFallingHash;
-
     private int numJumps = 2;
     private float dirX = 0f;
-    private float dirY = 0f;
 
     [SerializeField]
     private float smoothingFactor;
@@ -46,7 +40,6 @@ public class PlayerMovement : MonoBehaviour
     private float movementSpeed = 7f;
 
     private enum MovementState { Idle, Running, Jumping, DoubleJumping, Falling }
-    private MovementState movementState = MovementState.Idle;
 
     // Start is called before the first frame update
     private void Start()
@@ -73,7 +66,6 @@ public class PlayerMovement : MonoBehaviour
     private void Update()
     {
         dirX = Input.GetAxisRaw("Horizontal");
-        dirY = Input.GetAxisRaw("Vertical");
 
         UpdatePlayerMovement();
         UpdateAnimationState();
@@ -96,8 +88,9 @@ public class PlayerMovement : MonoBehaviour
         float velY = rb.velocity.y;
 
         rb.velocity = new Vector2(dirX * movementSpeed, velY);
-
+       
         float velX = rb.velocity.x;
+
 
         if (velX < -.1f)
         {
@@ -111,8 +104,8 @@ public class PlayerMovement : MonoBehaviour
 
         if (Input.GetButtonDown("Jump") && CanJump())
         {
-            rb.velocity = new Vector2(velX, dirY * jumpForce);
-            numJumps--;
+            rb.velocity = new Vector2(velX, jumpForce);
+            --numJumps;
         }
 
     }
@@ -132,7 +125,7 @@ public class PlayerMovement : MonoBehaviour
 
     private bool CanJump()
     {
-        return IsPlayerOnJumpableSurface() || (numJumps > 0) || (playerAnimator.GetInteger("movementState") == 4);
+        return (IsPlayerOnJumpableSurface() || numJumps > 0);
     }
 
     private bool IsPlayerOnJumpableSurface()
@@ -144,10 +137,10 @@ public class PlayerMovement : MonoBehaviour
 
         bool isPlayerOnJumpableSurface = isPlayerOnGround || isPlayerOnLeftWall || isPlayerOnRightWall;
 
-        Debug.Log("isPlayerOnJumpableSurface" + isPlayerOnJumpableSurface);
-        Debug.Log("isPlayerOnGround: " + isPlayerOnGround);
-        Debug.Log("isPlayerOnLeftWall: " + isPlayerOnLeftWall);
-        Debug.Log("isPlayerOnRightWall: " + isPlayerOnRightWall);
+        //Debug.Log("isPlayerOnJumpableSurface" + isPlayerOnJumpableSurface);
+        //Debug.Log("isPlayerOnGround: " + isPlayerOnGround);
+        //Debug.Log("isPlayerOnLeftWall: " + isPlayerOnLeftWall);
+        //Debug.Log("isPlayerOnRightWall: " + isPlayerOnRightWall);
 
         if (isPlayerOnJumpableSurface)
         {
@@ -170,6 +163,7 @@ public class PlayerMovement : MonoBehaviour
         }
 
         Transform camTransform = camera.transform;
+
         Vector3 playerPos = transform.position; // Get the player's position
         Vector3 cameraPos = camera.transform.position;
 
